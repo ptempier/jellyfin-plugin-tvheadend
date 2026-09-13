@@ -18,7 +18,7 @@ using TVHeadEnd.TimeoutHelper;
 
 namespace TVHeadEnd
 {
-    public class RecordingsChannel : IChannel, ISupportsDelete, ISupportsLatestMedia, IHasFolderAttributes
+    public class RecordingsChannel : IChannel, ISupportsDelete, ISupportsLatestMedia, ISupportsMediaProbe, IHasFolderAttributes
     {
         private readonly TimeSpan _timeout = TimeSpan.FromMinutes(5);
         private readonly ILogger<LiveTvService> _logger;
@@ -278,26 +278,19 @@ namespace TVHeadEnd
                         Path = path,
                         Protocol = path.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? MediaProtocol.Http : MediaProtocol.File,
                         Id = item.Id,
-                        Container = "mpegts",
-                        AnalyzeDurationMs = 2000,
-                        MediaStreams = new List<MediaStream>
-                        {
-                            new MediaStream
-                            {
-                                Type = MediaStreamType.Video,
-                                // Set the index to -1 because we don't know the exact index of the video stream within the container
-                                Index = -1,
-                                // Set to true if unknown to enable deinterlacing
-                                IsInterlaced = true,
-                                RealFrameRate = 50.0F
-                            },
-                            new MediaStream
-                            {
-                                Type = MediaStreamType.Audio,
-                                // Set the index to -1 because we don't know the exact index of the audio stream within the container
-                                Index = -1
-                            }
-                        }
+
+                        // A finished recording is a static file with a header, so let Jellyfin
+                        // probe it instead of describing it from guesses. The container was
+                        // hardcoded to "mpegts", which made ffmpeg run "-f mpegts" against
+                        // whatever the DVR profile actually wrote; on a Matroska recording it
+                        // then hunts for a transport stream that is not there and playback
+                        // never starts:
+                        //     [in#0] changing packet size to 188 / 192 / 204 ...
+                        // The placeholder streams below it were wrong for the same reason:
+                        // a real probe knows the stream indexes, the frame rate and whether
+                        // the content is interlaced. Live channels still need the declared
+                        // form, because probing an open-ended stream is what costs minutes.
+                        SupportsProbing = true
                     }
                 },
                 // ParentIndexNumber = item.ParentIndexNumber,

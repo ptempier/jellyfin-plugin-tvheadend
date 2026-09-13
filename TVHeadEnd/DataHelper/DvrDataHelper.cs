@@ -22,6 +22,18 @@ namespace TVHeadEnd.DataHelper
             _data = new Dictionary<string, HTSMessage>();
         }
 
+        /// <summary>
+        /// Gets the UTC time of the last recording change TVHeadend reported over HTSP.
+        /// </summary>
+        /// <remarks>
+        /// Recordings change whether the request came from Jellyfin or from TVHeadend's own
+        /// interface, and only HTSP sees both. Jellyfin caches a channel listing until the
+        /// key the channel hands it changes, and it only prunes items that disappeared when
+        /// the listing did not come from that cache, so a stamp that misses server side
+        /// changes leaves deleted recordings on screen until the server is restarted.
+        /// </remarks>
+        public DateTime LastChangeUtc { get; private set; } = DateTime.MinValue;
+
         public void DvrEntryAdd(HTSMessage message)
         {
             string? id = message.GetString("id");
@@ -41,6 +53,8 @@ namespace TVHeadEnd.DataHelper
 
                 _data.Add(id, message);
             }
+
+            LastChangeUtc = DateTime.UtcNow;
         }
 
         public void DvrEntryUpdate(HTSMessage message)
@@ -70,6 +84,8 @@ namespace TVHeadEnd.DataHelper
                     oldMessage.PutField(entry.Key, entry.Value);
                 }
             }
+
+            LastChangeUtc = DateTime.UtcNow;
         }
 
         public void DvrEntryDelete(HTSMessage message)
@@ -85,6 +101,8 @@ namespace TVHeadEnd.DataHelper
             {
                 _data.Remove(id);
             }
+
+            LastChangeUtc = DateTime.UtcNow;
         }
 
         public Task<IEnumerable<MyRecordingInfo>> BuildDvrInfos(CancellationToken cancellationToken)

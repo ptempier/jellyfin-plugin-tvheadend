@@ -413,6 +413,15 @@ namespace TVHeadEnd
             return _forceDeinterlace;
         }
 
+        /// <summary>
+        /// Returns the UTC time of the last recording change TVHeadend reported, whoever asked for it.
+        /// </summary>
+        /// <returns>The UTC time of the last recording change.</returns>
+        public DateTime GetLastRecordingChangeUtc()
+        {
+            return _dvrDataHelper.LastChangeUtc;
+        }
+
         public Task<IEnumerable<MyRecordingInfo>> BuildDvrInfos(CancellationToken cancellationToken)
         {
             return _dvrDataHelper.BuildDvrInfos(cancellationToken);

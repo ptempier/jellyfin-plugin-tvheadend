@@ -53,11 +53,22 @@ namespace TVHeadEnd
             Justification = "The array-typed property is mandated by MediaBrowser.Controller.Channels.IHasFolderAttributes.")]
         public string[] Attributes => ["Recordings"];
 
+        /// <summary>
+        /// Gets a token Jellyfin folds into the name of its channel cache file.
+        /// </summary>
+        /// <remarks>
+        /// This was a constant, so the value never invalidated anything. It now follows the
+        /// last recording change, because <c>ChannelManager</c> only removes items that
+        /// disappeared when the listing did not come from that cache; with a constant here and
+        /// a stamp that ignores changes made in TVHeadend itself, a recording deleted on the
+        /// server stayed visible in Jellyfin, and playing it failed with a 404, until the
+        /// server was restarted.
+        /// </remarks>
         public string DataVersion
         {
             get
             {
-                return "1";
+                return LastRecordingChangeUtc().Ticks.ToString(CultureInfo.InvariantCulture);
             }
         }
 
@@ -85,9 +96,26 @@ namespace TVHeadEnd
 
             values.Add(Math.Floor(minute).ToString(CultureInfo.InvariantCulture));
 
-            values.Add(GetService().LastRecordingChange.Ticks.ToString(CultureInfo.InvariantCulture));
+            values.Add(LastRecordingChangeUtc().Ticks.ToString(CultureInfo.InvariantCulture));
 
             return string.Join("-", values.ToArray());
+        }
+
+        /// <summary>
+        /// Returns the most recent recording change, whichever side asked for it.
+        /// </summary>
+        /// <remarks>
+        /// The service only stamps what Jellyfin itself requested, so it misses anything done
+        /// in TVHeadend. The connection handler stamps every HTSP dvrEntry event, which covers
+        /// both, but arrives a moment after a locally issued change. Take whichever is later.
+        /// </remarks>
+        /// <returns>The UTC time of the last known recording change.</returns>
+        private DateTime LastRecordingChangeUtc()
+        {
+            var fromHtsp = _htsConnectionHandler.GetLastRecordingChangeUtc();
+            var fromService = GetService().LastRecordingChange;
+
+            return fromHtsp > fromService ? fromHtsp : fromService;
         }
 
         public InternalChannelFeatures GetChannelFeatures()

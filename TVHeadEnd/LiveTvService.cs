@@ -4,8 +4,10 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Jellyfin.Extensions.Json;
 using MediaBrowser.Controller.LiveTv;
 using MediaBrowser.Controller.MediaEncoding;
 using MediaBrowser.Model.Dto;
@@ -562,8 +564,8 @@ namespace TVHeadEnd
             mediaSourceInfo.Container = info.Container;
             _logger.LogDebug("        Container:                  {Container}", info.Container);
 
-            // One result feeds more than one media source, so give each its own list.
-            mediaSourceInfo.MediaStreams = [.. info.MediaStreams];
+            // One result feeds more than one media source, and Jellyfin writes per-user data (subtitle URLs carrying the access token) into the streams.
+            mediaSourceInfo.MediaStreams = CopyStreams(info.MediaStreams);
             _logger.LogDebug("        MediaStreams:               ");
             LogMediaStreamList(info.MediaStreams, "                       ");
 
@@ -617,6 +619,13 @@ namespace TVHeadEnd
                 mediaSourceInfo.DefaultAudioStreamIndex = audioStream.Index;
                 _logger.LogDebug("        DefaultAudioStreamIndex:    '{DefaultAudioStreamIndex}'", audioStream.Index);
             }
+        }
+
+        private static List<MediaStream> CopyStreams(IReadOnlyList<MediaStream> streams)
+        {
+            // The way Jellyfin copies a media source itself.
+            var json = JsonSerializer.SerializeToUtf8Bytes(streams, JsonDefaults.Options);
+            return JsonSerializer.Deserialize<List<MediaStream>>(json, JsonDefaults.Options) ?? [];
         }
 
         private void LogMediaStreamList(IReadOnlyList<MediaStream> theList, string prefix)
